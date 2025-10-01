@@ -1,0 +1,76 @@
+name: argocd_deployment
+description: Deploy and rollback ArgoCD applications with Buildkite
+author: https://github.com/buildkite-plugins
+main: hooks.command
+version: v1.0.0
+api: v1
+requirements:
+  - bash
+  - argocd
+  - jq
+configuration:
+  properties:
+    app:
+      type: string
+      description: "ArgoCD application name"
+    argocd_server:
+      type: string
+      description: "ArgoCD server URL (can also use ARGOCD_SERVER env var)"
+    argocd_username:
+      type: string
+      description: "ArgoCD username (can also use ARGOCD_USERNAME env var)"
+    mode:
+      type: string
+      description: "Operation mode: deploy or rollback"
+      default: "deploy"
+      enum: ["deploy", "rollback"]
+    rollback_mode:
+      type: string
+      description: "Rollback mode: auto or manual. Defaults to 'auto' for deploy mode, required for rollback mode."
+      enum: ["auto", "manual"]
+    target_revision:
+      type: string
+      description: "Target revision for rollback operations (ArgoCD History ID or Git commit SHA)"
+    timeout:
+      type: number
+      description: "Timeout in seconds for ArgoCD operations"
+      default: 300
+      minimum: 30
+      maximum: 3600
+    health_check_interval:
+      type: number
+      description: "Health check interval in seconds"
+      default: 30
+      minimum: 10
+      maximum: 300
+    health_check_timeout:
+      type: number
+      description: "Health check timeout in seconds"
+      default: 300
+      minimum: 60
+      maximum: 1800
+    collect_logs:
+      type: boolean
+      description: "Collect application logs on deployment"
+      default: false
+    log_lines:
+      type: number
+      description: "Number of log lines to collect"
+      default: 1000
+      minimum: 100
+      maximum: 10000
+    upload_artifacts:
+      type: boolean
+      description: "Upload logs and deployment artifacts"
+      default: false
+    notifications:
+      type: object
+      description: "Notification settings for rollback events"
+      properties:
+        slack_channel:
+          type: string
+          description: "Slack channel, username, or user ID for notifications (e.g., '#deployments', '@username', or 'U123ABC456')"
+      additionalProperties: false
+  required:
+    - app
+  additionalProperties: false
