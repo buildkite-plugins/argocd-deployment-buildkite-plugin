@@ -38,6 +38,9 @@ send_notification() {
     local from_revision="$3"
     local to_revision="$4"
     
+    # Get current queue for proper agent targeting
+    local current_queue="$BUILDKITE_AGENT_META_DATA_QUEUE"
+    
     log_info "Preparing $notification_type notification for $app_name"
     log_debug "Notification details: type=$notification_type, from=$from_revision, to=$to_revision"
     
@@ -119,6 +122,8 @@ send_notification() {
         notification_pipeline=$(cat <<-EOF
 steps:
   - label: ":slack: ArgoCD Plugin Notification"
+    agents:
+      queue: $current_queue
     command: "echo 'Sending notification to Slack...'"
     notify:
       - slack:

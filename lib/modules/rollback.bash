@@ -210,6 +210,9 @@ inject_rollback_decision_block() {
     local app_name="$1"
     local previous_revision="$2"
     
+    # Get current queue for proper agent targeting
+    local current_queue="$BUILDKITE_AGENT_META_DATA_QUEUE"
+    
     log_info "Injecting rollback decision block step for $app_name..."
     
     # Pre-compute everything while in plugin context (Layer 2)
@@ -287,7 +290,7 @@ steps:
   - label: "Execute User Decision"
     depends_on: "deployment-failed-choose-action"
     agents:
-      queue: kubernetes
+      queue: ${current_queue}
     command: |
       echo "--- Checking user decision from block step"
       
