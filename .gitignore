@@ -1,0 +1,10 @@
+.DS_Store
+.vscode
+node_modules
+hooks/Command_backup.sh
+# Test artifacts and logs
+deployment-*.log
+argocd-logs/
+*.log
+test_*.sh
+.bk.yaml

@@ -1,0 +1,192 @@
+#!/bin/bash
+set -euo pipefail
+
+DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
+
+# Source shared utilities and plugin configuration
+# shellcheck source=lib/shared.bash
+. "$DIR/../lib/shared.bash"
+
+# Source feature modules (loaded dynamically)
+
+# Load modules dynamically to avoid shellcheck SC1091 warnings
+for module in argocd health logging rollback notifications; do
+    # shellcheck source=/dev/null
+    . "$DIR/../lib/modules/${module}.bash"
+done
+
+# Set up error handling and debug mode
+setup_error_trap
+enable_debug_if_requested
+
+# Main function
+main() {
+    local app_name
+    local mode
+    local rollback_mode
+    
+    log_info "Starting ArgoCD deployment plugin"
+    
+    app_name=$(plugin_read_config APP "")
+    mode=$(plugin_read_config MODE "deploy")
+
+    # Validate app name first
+    validate_required_config "app parameter" "$app_name"
+    
+    # Validate and set rollback_mode based on mode
+    if [[ "$mode" == "deploy" ]]; then
+        rollback_mode=$(plugin_read_config ROLLBACK_MODE "auto")  # Default to auto for deploy
+        # Validate rollback_mode for deploy
+        if [[ "$rollback_mode" != "auto" && "$rollback_mode" != "manual" ]]; then
+            log_error "Invalid rollback_mode '$rollback_mode' for deploy mode. Must be 'auto' or 'manual'"
+            exit 1
+        fi
+    elif [[ "$mode" == "rollback" ]]; then
+        rollback_mode=$(plugin_read_config ROLLBACK_MODE "")      # REQUIRED for rollback - no default
+        if [[ -z "$rollback_mode" ]]; then
+            log_error "rollback_mode is required for rollback mode. Must be 'auto' or 'manual'"
+            log_info "Specify rollback_mode: auto (previous version) or manual (specific target_revision)"
+            exit 1
+        fi
+        if [[ "$rollback_mode" != "auto" && "$rollback_mode" != "manual" ]]; then
+            log_error "Invalid rollback_mode '$rollback_mode' for rollback mode. Must be 'auto' or 'manual'"
+            exit 1
+        fi
+        
+        # For manual rollback mode, target revision is required
+        if [[ "$rollback_mode" == "manual" ]]; then
+            local target_revision
+            target_revision=$(plugin_read_config TARGET_REVISION "")
+            if [[ -z "$target_revision" ]]; then
+                log_error "target_revision is required when mode is 'rollback' and rollback_mode is 'manual'"
+                log_info "Specify either:"
+                log_info "   - ArgoCD History ID (e.g., '5')"
+                log_info "   - Git commit SHA (e.g., 'abc123def456')"
+                exit 1
+            fi
+        fi
+    else
+        log_error "Invalid mode '$mode'. Must be 'deploy' or 'rollback'"
+        exit 1
+    fi
+    
+    # Validate requirements and setup
+    validate_requirements
+    validate_notification_config
+    setup_argocd_auth
+    
+    case "$mode" in
+        "deploy")
+            deploy_application "$app_name" "$rollback_mode"
+            ;;
+        "rollback")
+            # For explicit rollback mode, determine target revision
+            local target_revision
+            local log_file
+            log_file=$(create_deployment_log "$app_name" "rollback" "in_progress")
+            
+            if [[ "$rollback_mode" == "manual" ]]; then
+                # Use specified target revision for manual rollback
+                target_revision=$(plugin_read_config TARGET_REVISION "")
+                log_info "Manual rollback mode: using specified target revision $target_revision"
+            else
+                # Use same smart detection as deploy mode for auto rollback
+                # For explicit rollback, we want to rollback from current to previous
+                log_debug "Auto rollback mode: finding previous deployment from ArgoCD history..."
+                target_revision=$(get_previous_deployment "$app_name")
+                
+                if [[ -z "$target_revision" || "$target_revision" == "unknown" ]]; then
+                    log_error "No previous version available for rollback"
+                    log_info "Use rollback_mode: manual with target_revision instead"
+                    exit 1
+                fi
+                log_info "Auto rollback mode: using revision $target_revision"
+            fi
+            execute_rollback "$app_name" "$target_revision" "explicit" "$log_file"
+            ;;
+    esac
+}
+
+deploy_application() {
+    local app_name="$1"
+    local rollback_mode="$2"
+    
+    log_info "Starting deployment for ArgoCD application: $app_name"
+    log_info "Rollback mode: $rollback_mode"
+    
+    # Validate application exists
+    if ! application_exists "$app_name"; then
+        log_error "Application $app_name does not exist or is not accessible"
+        exit 1
+    fi
+    
+    # Create deployment log
+    local log_file
+    log_file=$(create_deployment_log "$app_name" "deploy" "in_progress")
+    
+    # Get current stable deployment before deployment (History ID format)
+    local stable_revision
+    stable_revision=$(get_stable_deployment "$app_name")
+    
+    # Store pre-deployment metadata  
+    set_deployment_metadata "$app_name" "deploying" "" "" "$stable_revision"
+    
+    # Execute deployment
+    local timeout
+    timeout=$(plugin_read_config TIMEOUT "300")
+    
+    log_info "Syncing ArgoCD application..."
+    
+    # Execute sync using module function
+    if execute_argocd_sync "$app_name" "$timeout" "$log_file"; then
+        deploy_exit_code=0
+    else
+        deploy_exit_code=1
+    fi
+    
+    if [[ $deploy_exit_code -eq 0 ]]; then
+        # Get the new stable deployment after sync (History ID format)
+        local new_stable_revision
+        new_stable_revision=$(get_stable_deployment "$app_name")
+        
+        # Update metadata with success
+        set_deployment_metadata "$app_name" "deployed" "success" "$new_stable_revision"
+        
+        # Update log with success
+        echo "=== Deployment Result: SUCCESS ===" >> "$log_file"
+        echo "New stable revision: $new_stable_revision" >> "$log_file"
+        
+        # Create annotation
+        create_deployment_annotation "$app_name" "$stable_revision" "$new_stable_revision" "success"
+        
+        # Health checks with different retry behavior based on rollback mode
+        local retry_enabled
+        if [[ "$rollback_mode" == "auto" ]]; then
+            retry_enabled="true"
+        else
+            retry_enabled="false"
+        fi
+        
+        if ! monitor_application_health "$app_name" "$retry_enabled"; then
+            log_error "Health check failed after deployment"
+            handle_deployment_failure "$app_name" "$rollback_mode" "$stable_revision" "$log_file" "health_check_failed"
+            return  # Let handle_deployment_failure manage the exit
+        fi
+        
+        # Collect logs and upload artifacts if enabled
+        handle_log_collection_and_artifacts "$app_name" "$log_file"
+        
+        log_success "Deployment successful"
+        log_info "Previous: $stable_revision"
+        log_info "Current:  $new_stable_revision"
+        
+        # Send success notification if configured
+        send_notification "$app_name" "deployment_success" "$stable_revision" "$new_stable_revision"
+    else
+        log_error "Deployment sync failed with exit code: $deploy_exit_code"
+        handle_deployment_failure "$app_name" "$rollback_mode" "$stable_revision" "$log_file" "deployment_failed"
+    fi
+}
+
+# Execute main function
+main "$@"

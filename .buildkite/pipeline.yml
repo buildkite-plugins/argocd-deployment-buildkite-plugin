@@ -1,0 +1,18 @@
+steps:
+  - label: ":shell: Tests"
+    plugins:
+      - plugin-tester#v1.2.0:
+          folders:
+            - tests
+
+  - label: ":sparkles: Lint"
+    plugins:
+      - plugin-linter#v3.3.0:
+          id: argocd_deployment
+
+  - label: ":shell: Shellcheck"
+    plugins:
+      - shellcheck#v1.4.0:
+          files:
+            - hooks/**
+            - lib/*.bash
