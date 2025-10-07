@@ -1,6 +1,6 @@
 # ArgoCD Deployment Buildkite Plugin
 
-:argocd: A Buildkite plugin for deploying and rolling back ArgoCD applications with comprehensive health monitoring, log collection, and notification capabilities.
+A Buildkite plugin for deploying and rolling back ArgoCD applications with comprehensive health monitoring, log collection, and notification capabilities.
 
 ## Prerequisites
 
