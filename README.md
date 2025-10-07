@@ -1,6 +1,6 @@
 # ArgoCD Deployment Buildkite Plugin
 
-A Buildkite plugin for deploying and rolling back ArgoCD applications with comprehensive health monitoring, log collection, and notification capabilities.
+:argocd: A Buildkite plugin for deploying and rolling back ArgoCD applications with comprehensive health monitoring, log collection, and notification capabilities.
 
 ## Prerequisites
 
@@ -247,20 +247,28 @@ steps:
 
 ## Compatibility
 
-| Elastic Stack | Agent Stack K8s | Local Agents (Mac/Linux) | Hosted Agents |
+| Elastic Stack | Agent Stack K8s | Local Agents (Mac/Linux) | Hosted Agents (Mac/Linux) |
 | :-----------: | :-------------: | :----: | :----: |
-| ✅ | ✅ | ✅ | ⚠️ |
+| ✅ | ✅ | ✅ | ✅ |
 
-- ✅ **Fully supported** - Tested and verified
-- ⚠️ **Requires setup** - ArgoCD CLI must be pre-installed
+- ✅ **Fully supported** - Tested and verified; all agent types require the ArgoCD CLI to be pre-installed. Hosted Agents may require installation via pipeline.
 
 ## Developing
 
 To run linting and shellchecks, use `bk run` with the [Buildkite CLI](https://github.com/buildkite/cli):
 
-```bash
-bk run
-```
+## Contributing
+
+We welcome contributions! Please follow these guidelines:
+
+1. **Fork the repository** and create a feature branch
+2. **Write tests** for any new functionality
+3. **Run linting** with `bk run` before submitting
+4. **Follow shell best practices** - use shellcheck-compliant code
+5. **Update documentation** - keep README and CHANGELOG current
+6. **Submit a pull request** with a clear description of changes
+
+For bug reports and feature requests, please [open an issue](https://github.com/buildkite-plugins/argocd-deployment-buildkite-plugin/issues).
 
 ## 📜 License
 
