@@ -1,0 +1,32 @@
+#!/bin/bash
+case "$1" in
+  "version") echo "argocd: v2.8.0" ;;
+  "context") echo "current" ;;
+  "login") 
+    echo "Logged in successfully"
+    exit 0
+    ;;
+  "app")
+    case "$2" in
+      "get") 
+        # Always return healthy status for tests
+        echo '{"metadata":{"name":"test-app"},"status":{"sync":{"revision":"abc123"},"health":{"status":"Healthy"},"operationState":{"phase":"Succeeded"}}}'
+        ;;
+      "sync") 
+        echo "Synced successfully"
+        exit 0
+        ;;
+      "rollback") 
+        echo "Rolled back successfully"
+        exit 0
+        ;;
+      "history")
+        # Return empty history to trigger "No deployment history available" error
+        # Just return empty output (no header, no data)
+        exit 0
+        ;;
+      *) echo "app: $*" ;;
+    esac
+    ;;
+  *) echo "argocd: $*" ;;
+esac
