@@ -28,24 +28,20 @@ steps:
     key: "fetch-argocd-secrets"
     plugins:
       # Choose your secret management solution:
-      - secrets#v1.0.0:                    # Buildkite Secrets
+      - secrets#v1.0.2:                    # Buildkite Secrets
           env:
             ARGOCD_PASSWORD: your-secret-key
       # OR
-      - vault-secrets#v2.2.1:              # HashiCorp Vault
-          server: ${VAULT_ADDR}
+      - vault-secrets#v2.3.1:              # HashiCorp Vault
+          server: "https://my-vault-server"
           secrets:
             - path: secret/argocd/password
               field: ARGOCD_PASSWORD
       # OR  
-      - aws-sm#v1.0.0:                     # AWS Secrets Manager
+      - seek-oss/aws-sm#v2.3.3:             # AWS Secrets Manager
           secrets:
             - name: ARGOCD_PASSWORD
               key: argocd/password
-      # OR
-      - aws-ssm#v1.0.0:                    # AWS SSM Parameter Store
-          parameters:
-            ARGOCD_PASSWORD: /argocd/password
             
   # All ArgoCD steps use the fetched credentials
   - label: "🚀 Deploy Application"
@@ -187,7 +183,7 @@ Safe deployments with automatic rollback on health check failures:
 steps:
   - label: "🚀 Deploy Application"
     plugins:
-      - secrets#v1.0.0:
+      - secrets#v1.0.2:
           variables:
             ARGOCD_PASSWORD: argocd_password
       - argocd_deployment#v1.0.0:
@@ -208,7 +204,7 @@ Manual rollback workflow with interactive block steps for user decision:
 steps:
   - label: "🚫 Deploy with Manual Rollback"
     plugins:
-      - secrets#v1.0.0:
+      - secrets#v1.0.2:
           variables:
             ARGOCD_PASSWORD: argocd_password
       - argocd_deployment#v1.0.0:
@@ -231,7 +227,7 @@ Explicit rollback to a specific revision:
 steps:
   - label: "🔄 Manual Rollback"
     plugins:
-      - secrets#v1.0.0:
+      - secrets#v1.0.2:
           variables:
             ARGOCD_PASSWORD: argocd_password
       - argocd_deployment#v1.0.0:
