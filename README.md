@@ -47,7 +47,7 @@ steps:
   - label: "🚀 Deploy Application"
     depends_on: "fetch-argocd-secrets"
     plugins:
-      - argocd_deployment#v1.0.0:
+      - argocd-deployment#v1.0.0:
           app: "my-app"
           argocd_server: "https://argocd.example.com" # if not set in environment variables
           argocd_username: "admin" # if not set in environment variables
@@ -186,7 +186,7 @@ steps:
       - secrets#v1.0.2:
           variables:
             ARGOCD_PASSWORD: argocd_password
-      - argocd_deployment#v1.0.0:
+      - argocd-deployment#v1.0.0:
           app: "my-app"
           argocd_server: "https://argocd.example.com"
           argocd_username: "admin"
@@ -207,7 +207,7 @@ steps:
       - secrets#v1.0.2:
           variables:
             ARGOCD_PASSWORD: argocd_password
-      - argocd_deployment#v1.0.0:
+      - argocd-deployment#v1.0.0:
           app: "my-app"
           argocd_server: "https://argocd.example.com"
           argocd_username: "admin"
@@ -230,7 +230,7 @@ steps:
       - secrets#v1.0.2:
           variables:
             ARGOCD_PASSWORD: argocd_password
-      - argocd_deployment#v1.0.0:
+      - argocd-deployment#v1.0.0:
           app: "my-app"
           argocd_server: "https://argocd.example.com"
           argocd_username: "admin"
