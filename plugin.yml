@@ -1,4 +1,4 @@
-name: argocd_deployment
+name: ArgoCD Deployment
 description: Deploy and rollback ArgoCD applications with Buildkite
 author: https://github.com/buildkite-plugins
 main: hooks.command
