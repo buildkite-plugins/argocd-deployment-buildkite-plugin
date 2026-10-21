@@ -131,6 +131,44 @@ ArgoCD server URL. Can also be set via `ARGOCD_SERVER` environment variable. Sup
 - ELB IP address: `52.206.16.12:443`
 - Kubernetes service: `argocd-server.argocd.svc.cluster.local:443`
 
+#### TLS certificate verification and private CAs
+
+Login and generated manual rollback commands verify the ArgoCD server certificate
+and hostname. Older versions of this plugin unconditionally used `--insecure`;
+this was a pre-existing verification bypass, not a CA-specific regression.
+Servers with self-signed, untrusted, expired, or wrong-host certificates will now
+fail authentication. Fix the certificate or configure trust rather than disabling
+verification. This plugin does not provide an insecure compatibility mode.
+
+For a private CA, provision its PEM CA bundle on the agent and configure the
+ArgoCD CLI's system trust before running the plugin. For example, on Linux agents
+using the standard Go certificate verifier:
+
+```yaml
+env:
+  SSL_CERT_FILE: "/etc/company/argocd-ca-bundle.pem"
+```
+
+The bundle must contain the required trust anchors; use a combined public/private
+bundle if other clients need public roots. Trust-store behavior varies by OS and
+ArgoCD build: validate it with your installed CLI. On macOS, configure the system
+trust store instead. The CLI also has a `--server-crt` option, but do not assume
+that every CLI version applies it to `login`; verify your version's behavior.
+Do not set `ARGOCD_OPTS` or other CLI configuration to disable TLS verification
+or use plaintext transport.
+
+Generated manual rollback runs in a separate Buildkite step. Provision the same
+CA trust and required environment on every eligible agent, and make the CA bundle
+available at the same path in the rollback step (for example, through pipeline
+level environment and agent provisioning). Step-local environment is not
+necessarily inherited by the generated step.
+
+Both login paths use `--skip-test-tls` to bypass ArgoCD's interactive TLS detection
+probe, which can offer an insecure/plaintext downgrade and does not consistently
+honor custom trust. This flag **does not disable certificate verification** on
+the actual authenticated connection. Login has no interactive stdin, fails closed
+on trust errors, and never retries with `--insecure`.
+
 #### `argocd_username` (string)
 
 ArgoCD username. Can also be set via `ARGOCD_USERNAME` environment variable.
@@ -252,6 +290,23 @@ steps:
 ## Developing
 
 To run linting and shellchecks, use `bk run` with the [Buildkite CLI](https://github.com/buildkite/cli):
+
+### TLS regression tests
+
+Run `bats tests` for command construction and fail-closed login/rollback tests.
+The optional local-only verifier fixture requires Python 3, OpenSSL, and an
+ArgoCD CLI with gRPC-web support:
+
+```sh
+python3 tests/tls-integration.py --argocd /path/to/argocd
+```
+
+It uses temporary certificates, isolated CLI configuration, and fake credentials
+against a loopback TLS server; it never contacts a deployment. It checks trusted
+login and rejection of untrusted/wrong-host certificates before credentials are
+sent. The fixture was exercised with Linux ArgoCD v2.8.0 and v3.5.6; it does not
+qualify every agent's installed CLI or trust store. The local fixture is optional
+and is not run by the plugin-tester Bats job.
 
 ## Contributing
 
