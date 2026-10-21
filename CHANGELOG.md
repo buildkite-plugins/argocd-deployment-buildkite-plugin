@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- Verify server certificates for login and generated manual rollback instead of
+  unconditionally using `--insecure`. Private/self-signed CAs now require trust
+  configuration on each participating agent; no insecure fallback is provided.
+
 ## [1.0.0] - 2025-10-07
 
 ### Added

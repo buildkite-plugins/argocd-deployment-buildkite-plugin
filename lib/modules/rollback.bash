@@ -306,8 +306,9 @@ steps:
         
         # Authenticate with ArgoCD first (use Buildkite plugin environment variables)
         echo "🔐 Authenticating with ArgoCD server..."
-        if ! argocd login "\$BUILDKITE_PLUGIN_ARGOCD_DEPLOYMENT_ARGOCD_SERVER" --username "\$BUILDKITE_PLUGIN_ARGOCD_DEPLOYMENT_ARGOCD_USERNAME" --password "\$ARGOCD_PASSWORD" --insecure >/dev/null 2>&1; then
-          echo "❌ Failed to authenticate with ArgoCD"
+        # Skip the interactive TLS probe; retain certificate verification.
+        if ! argocd login "\$BUILDKITE_PLUGIN_ARGOCD_DEPLOYMENT_ARGOCD_SERVER" --username "\$BUILDKITE_PLUGIN_ARGOCD_DEPLOYMENT_ARGOCD_USERNAME" --password "\$ARGOCD_PASSWORD" --skip-test-tls </dev/null >/dev/null 2>&1; then
+          echo "❌ Failed to authenticate with ArgoCD; check credentials, connectivity, and TLS certificate trust"
           exit 1
         fi
         

@@ -20,9 +20,11 @@ setup_argocd_auth() {
     
     log_info "Authenticating with ArgoCD server: $argocd_server"
     
-    if ! argocd login "$argocd_server" --username "$argocd_username" --password "$argocd_password" --insecure >/dev/null 2>&1; then
+    # Skip the interactive TLS probe, not certificate verification. The probe can
+    # offer to downgrade TLS and does not use custom CA trust consistently.
+    if ! argocd login "$argocd_server" --username "$argocd_username" --password "$argocd_password" --skip-test-tls </dev/null >/dev/null 2>&1; then
         log_error "Failed to authenticate with ArgoCD server"
-        log_info "Please check your credentials and server connectivity"
+        log_info "Please check your credentials, server connectivity, and TLS certificate trust"
         exit 1
     fi
     

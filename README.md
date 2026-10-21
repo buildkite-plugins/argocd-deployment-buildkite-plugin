@@ -131,6 +131,28 @@ ArgoCD server URL. Can also be set via `ARGOCD_SERVER` environment variable. Sup
 - ELB IP address: `52.206.16.12:443`
 - Kubernetes service: `argocd-server.argocd.svc.cluster.local:443`
 
+#### TLS certificates
+
+The ArgoCD CLI verifies the server certificate and hostname during login and
+rollback. For private CAs, configure trust on every agent that can run either
+step. On Linux, you can provide a PEM CA bundle through pipeline-level environment:
+
+```yaml
+env:
+  SSL_CERT_FILE: "/etc/company/argocd-ca-bundle.pem"
+```
+
+Ensure the bundle includes any public roots other clients need. On macOS,
+configure the system trust store. Check the configuration with your installed
+ArgoCD CLI, and do not use CLI overrides that disable verification.
+
+Manual rollback runs in a separate step, which may use another agent. Make the
+same trust configuration and CA files available there; step-local environment
+variables are not necessarily inherited.
+
+The plugin uses `--skip-test-tls` to prevent an interactive TLS-detection prompt.
+This flag does not disable certificate verification.
+
 #### `argocd_username` (string)
 
 ArgoCD username. Can also be set via `ARGOCD_USERNAME` environment variable.
@@ -251,7 +273,18 @@ steps:
 
 ## Developing
 
-To run linting and shellchecks, use `bk run` with the [Buildkite CLI](https://github.com/buildkite/cli):
+To run linting and shellchecks, use `bk run` with the [Buildkite CLI](https://github.com/buildkite/cli).
+
+Run `bats tests` for the login and rollback tests. To also test certificate and
+hostname verification against a local server, install Python 3, OpenSSL and an
+ArgoCD CLI with gRPC-web support, then run:
+
+```sh
+python3 tests/tls-integration.py --argocd /path/to/argocd
+```
+
+The fixture uses temporary certificates and fake credentials; it does not contact
+a deployment or run as part of the Bats suite.
 
 ## Contributing
 
