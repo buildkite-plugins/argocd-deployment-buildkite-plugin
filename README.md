@@ -131,43 +131,27 @@ ArgoCD server URL. Can also be set via `ARGOCD_SERVER` environment variable. Sup
 - ELB IP address: `52.206.16.12:443`
 - Kubernetes service: `argocd-server.argocd.svc.cluster.local:443`
 
-#### TLS certificate verification and private CAs
+#### TLS certificates
 
-Login and generated manual rollback commands verify the ArgoCD server certificate
-and hostname. Older versions of this plugin unconditionally used `--insecure`;
-this was a pre-existing verification bypass, not a CA-specific regression.
-Servers with self-signed, untrusted, expired, or wrong-host certificates will now
-fail authentication. Fix the certificate or configure trust rather than disabling
-verification. This plugin does not provide an insecure compatibility mode.
-
-For a private CA, provision its PEM CA bundle on the agent and configure the
-ArgoCD CLI's system trust before running the plugin. For example, on Linux agents
-using the standard Go certificate verifier:
+The ArgoCD CLI verifies the server certificate and hostname during login and
+rollback. For private CAs, configure trust on every agent that can run either
+step. On Linux, you can provide a PEM CA bundle through pipeline-level environment:
 
 ```yaml
 env:
   SSL_CERT_FILE: "/etc/company/argocd-ca-bundle.pem"
 ```
 
-The bundle must contain the required trust anchors; use a combined public/private
-bundle if other clients need public roots. Trust-store behavior varies by OS and
-ArgoCD build: validate it with your installed CLI. On macOS, configure the system
-trust store instead. The CLI also has a `--server-crt` option, but do not assume
-that every CLI version applies it to `login`; verify your version's behavior.
-Do not set `ARGOCD_OPTS` or other CLI configuration to disable TLS verification
-or use plaintext transport.
+Ensure the bundle includes any public roots other clients need. On macOS,
+configure the system trust store. Check the configuration with your installed
+ArgoCD CLI, and do not use CLI overrides that disable verification.
 
-Generated manual rollback runs in a separate Buildkite step. Provision the same
-CA trust and required environment on every eligible agent, and make the CA bundle
-available at the same path in the rollback step (for example, through pipeline
-level environment and agent provisioning). Step-local environment is not
-necessarily inherited by the generated step.
+Manual rollback runs in a separate step, which may use another agent. Make the
+same trust configuration and CA files available there; step-local environment
+variables are not necessarily inherited.
 
-Both login paths use `--skip-test-tls` to bypass ArgoCD's interactive TLS detection
-probe, which can offer an insecure/plaintext downgrade and does not consistently
-honor custom trust. This flag **does not disable certificate verification** on
-the actual authenticated connection. Login has no interactive stdin, fails closed
-on trust errors, and never retries with `--insecure`.
+The plugin uses `--skip-test-tls` to prevent an interactive TLS-detection prompt.
+This flag does not disable certificate verification.
 
 #### `argocd_username` (string)
 
@@ -289,24 +273,18 @@ steps:
 
 ## Developing
 
-To run linting and shellchecks, use `bk run` with the [Buildkite CLI](https://github.com/buildkite/cli):
+To run linting and shellchecks, use `bk run` with the [Buildkite CLI](https://github.com/buildkite/cli).
 
-### TLS regression tests
-
-Run `bats tests` for command construction and fail-closed login/rollback tests.
-The optional local-only verifier fixture requires Python 3, OpenSSL, and an
-ArgoCD CLI with gRPC-web support:
+Run `bats tests` for the login and rollback tests. To also test certificate and
+hostname verification against a local server, install Python 3, OpenSSL and an
+ArgoCD CLI with gRPC-web support, then run:
 
 ```sh
 python3 tests/tls-integration.py --argocd /path/to/argocd
 ```
 
-It uses temporary certificates, isolated CLI configuration, and fake credentials
-against a loopback TLS server; it never contacts a deployment. It checks trusted
-login and rejection of untrusted/wrong-host certificates before credentials are
-sent. The fixture was exercised with Linux ArgoCD v2.8.0 and v3.5.6; it does not
-qualify every agent's installed CLI or trust store. The local fixture is optional
-and is not run by the plugin-tester Bats job.
+The fixture uses temporary certificates and fake credentials; it does not contact
+a deployment or run as part of the Bats suite.
 
 ## Contributing
 
